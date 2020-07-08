@@ -318,7 +318,7 @@ class Button (Control):
     super(Button, self).__init__(x, y, width, height)   
 
 class Image (Control):
-  def __init__(self, filename, x, y, width, height):
+  def __init__(self, filename = None, x = 0, y = 0, width = 32, height =  32):
     self.widget = gui.Image('', width = width, height = height)  
 
     self.widget.attributes['ondragstart'] = "event.preventDefault();"
@@ -457,4 +457,12 @@ class CSinSCApp:
     if len(self.events) > 0:
       event = self.events[0]
       del self.events[0]
-    return event     
+    return event
+
+  def wait_for_event(self):
+    while len(self.events) == 0:
+      pass
+    event = self.events[0]
+    del self.events[0]
+    return event
+      
