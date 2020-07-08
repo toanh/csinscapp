@@ -1,5 +1,5 @@
 name = "csinscapp"
-version = "0.0.4"
+version = "0.0.6"
 
 # tested on remi version = "2020.3.10"
 import remi.gui as gui
@@ -360,6 +360,8 @@ class CSinSCApp:
   CLICK = 0
   MOUSE_DOWN = 1  
   MOUSE_MOVE = 2
+  MOUSE_OVER = 3
+  MOUSE_OUT  = 4
 
   buffered_mode = False
 
@@ -388,6 +390,10 @@ class CSinSCApp:
   def addControl(self, control):
     self.container.append(control.widget)
     control.widget.onclick.do(self.on_click, control)
+    # BUG in REMI - onmouseover removed from version 2020.3
+    #control.widget.onmouseover.do(self.on_mouse_over, control)
+    control.widget.onmouseout.do(self.on_mouse_out, control)
+    control.widget.onmousemove.do(self.on_mouse_move, control)
 
   def remi_thread(self):
     start(CSinSCApp.MyApp, debug=False, address='0.0.0.0', port=0, multiple_instance = False, userdata = (self,))    
@@ -446,11 +452,17 @@ class CSinSCApp:
   def on_click(self, widget, control):
     self.events.append(Event(CSinSCApp.CLICK, control))
 
+  def on_mouse_over(self, widget, control):
+    self.events.append(Event(CSinSCApp.MOUSE_OVER, control))    
+
+  def on_mouse_out(self, widget, control):
+    self.events.append(Event(CSinSCApp.MOUSE_OUT, control))
+
   def on_mouse_down(self, widget, x, y, control):
-    self.events.append(Event(CSinSCApp.MOUSE_DOWN, widget, x, y))
+    self.events.append(Event(CSinSCApp.MOUSE_DOWN, control, x, y))
 
   def on_mouse_move(self, widget, x, y, control):
-    self.events.append(Event(CSinSCApp.MOUSE_MOVE, widget, x, y))    
+    self.events.append(Event(CSinSCApp.MOUSE_MOVE, control, x, y))    
   
   def get_next_event(self):
     event = Event(None, None)
