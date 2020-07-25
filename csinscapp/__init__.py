@@ -1,5 +1,11 @@
 name = "csinscapp"
-version = "0.0.6"
+version = "0.1.4"
+
+CLICK = 0
+MOUSE_DOWN = 1  
+MOUSE_MOVE = 2
+MOUSE_OVER = 3
+MOUSE_OUT  = 4
 
 # tested on remi version = "2020.3.10"
 import remi.gui as gui
@@ -104,7 +110,7 @@ class Control:
   def x(self, value): 
     self._x = value
     if CSinSCApp.buffered_mode:
-      CSinSCApp.styles[self] = ["left", f"{self._x}px;"]
+      CSinSCApp.styles[self]["left"] = f"{self._x}px;"
     else:
       self.widget.style["left"] = f"{self._x}px;"
 
@@ -115,7 +121,7 @@ class Control:
   def y(self, value): 
     self._y = value
     if CSinSCApp.buffered_mode:
-      CSinSCApp.styles[self] = ["top", f"{self._y}px;"]
+      CSinSCApp.styles[self]["top"] = f"{self._y}px;"
     else:
       self.widget.style["top"] = f"{self._y}px;"      
 
@@ -130,7 +136,7 @@ class Control:
     if not isinstance(width, str):
       width = f"{self._width}px;"
     if CSinSCApp.buffered_mode:
-      CSinSCApp.styles[self] = ["width", width]
+      CSinSCApp.styles[self]["width"] = width
     else:
       self.widget.style["width"] = width
 
@@ -145,7 +151,7 @@ class Control:
     if not isinstance(height, str):
       height = f"{self._height}px;"
     if CSinSCApp.buffered_mode:
-      CSinSCApp.styles[self] = ["height", height]
+      CSinSCApp.styles[self]["height"] = height
     else:
       self.widget.style["height"] = height
 
@@ -156,7 +162,7 @@ class Control:
   def y(self, value): 
     self._y = value
     if CSinSCApp.buffered_mode:
-      CSinSCApp.styles[self] = ["top", f"{self._y}px;"]
+      CSinSCApp.styles[self]["top"] = f"{self._y}px;"
     else:
       self.widget.style["top"] = f"{self._y}px;"         
 
@@ -168,7 +174,7 @@ class Control:
     self._visible = value
 
     if CSinSCApp.buffered_mode:
-      CSinSCApp.styles[self] = ["display", "inline;" if self._visible == True else "none;"]
+      CSinSCApp.styles[self]["display"] = "inline;" if self._visible == True else "none;"
     else:
       self.widget.style["display"] = "inline;" if self._visible == True else "none;"
 
@@ -356,13 +362,6 @@ class Image (Control):
 
 
 class CSinSCApp:
-
-  CLICK = 0
-  MOUSE_DOWN = 1  
-  MOUSE_MOVE = 2
-  MOUSE_OVER = 3
-  MOUSE_OUT  = 4
-
   buffered_mode = False
 
   resources_cache = {}
@@ -370,14 +369,22 @@ class CSinSCApp:
   commands = []
   styles = {}
 
-  def __init__(self, width = "100%", height = "100%"):
+  title = "CSinSchools Application"
+
+  def __init__(self, title = "CSinSchools Application", width = "100%", height = "100%"):
+    if title is None or len(title) == 0:
+      raise Exception("Please supply a title for the application.")
     self.events = []  
     self.initialised = False
+
+    CSinSCApp.title = title
 
     self.container = gui.Container(width = width, height = height)   
     self.container.style["display"] = "flex;"
     self.container.style["justify-content"] = "center;"
-    self.container.style["align-items"] = "top;"        
+    self.container.style["align-items"] = "top;"
+
+    self.thread_id = None
 
   # alias for addControl
   def add(self, control):
@@ -389,6 +396,7 @@ class CSinSCApp:
 
   def addControl(self, control):
     self.container.append(control.widget)
+    CSinSCApp.styles[control] = {}
     control.widget.onclick.do(self.on_click, control)
     # BUG in REMI - onmouseover removed from version 2020.3
     #control.widget.onmouseover.do(self.on_mouse_over, control)
@@ -396,19 +404,23 @@ class CSinSCApp:
     control.widget.onmousemove.do(self.on_mouse_move, control)
 
   def remi_thread(self):
-    start(CSinSCApp.MyApp, debug=False, address='0.0.0.0', port=0, multiple_instance = False, userdata = (self,))    
+    start(CSinSCApp.MyApp, title = CSinSCApp.title, debug=False, address='0.0.0.0', port=0, multiple_instance = False, userdata = (self,))    
 
   def main(self):
     self.initialised = True
     return self.container
 
   def run(self):
-    thread_id = Thread(target=self.remi_thread, daemon=True)
-    thread_id.daemon = True
-    thread_id.start()
+    self.thread_id = Thread(target=self.remi_thread, daemon=True)
+    self.thread_id.daemon = True
+    self.thread_id.start()
 
     while not self.initialised:
       pass
+
+  def stop(self):
+    if self.thread_id is not None:
+      self.thread_id.join()
 
   def refresh(self, buffer = True):
 
@@ -419,10 +431,14 @@ class CSinSCApp:
 
     # apply all styles
     for control in CSinSCApp.styles.keys():
-      control.widget.style[CSinSCApp.styles[control][0]] = CSinSCApp.styles[control][1]
+      for style in CSinSCApp.styles[control].keys():        
+        control.widget.style[style] = CSinSCApp.styles[control][style]
 
     CSinSCApp.commands = []
-    CSinSCApp.styles = {}
+
+    #clear styles
+    for control in CSinSCApp.styles.keys():
+      CSinSCApp.styles[control] = {}
 
   def readResource(filename):
 
@@ -450,31 +466,54 @@ class CSinSCApp:
       return userdata.main()
 
   def on_click(self, widget, control):
-    self.events.append(Event(CSinSCApp.CLICK, control))
+    self.events.append(Event(CLICK, control))
 
   def on_mouse_over(self, widget, control):
-    self.events.append(Event(CSinSCApp.MOUSE_OVER, control))    
+    self.events.append(Event(MOUSE_OVER, control))    
 
   def on_mouse_out(self, widget, control):
-    self.events.append(Event(CSinSCApp.MOUSE_OUT, control))
+    self.events.append(Event(MOUSE_OUT, control))
 
   def on_mouse_down(self, widget, x, y, control):
-    self.events.append(Event(CSinSCApp.MOUSE_DOWN, control, x, y))
+    self.events.append(Event(MOUSE_DOWN, control, x, y))
 
   def on_mouse_move(self, widget, x, y, control):
-    self.events.append(Event(CSinSCApp.MOUSE_MOVE, control, x, y))    
+    self.events.append(Event(MOUSE_MOVE, control, x, y))    
   
-  def get_next_event(self):
-    event = Event(None, None)
+  def get_next_event(self, event_types = None):
+    accept = False
+    event = None
+
     if len(self.events) > 0:
       event = self.events[0]
       del self.events[0]
+      if event_types is None:
+        accept = True
+      elif isinstance(event_types, list):
+        if event.type in event_types:
+          accept = True
+      elif isinstance(event_types, int):
+        if event.type == event_types:
+          accept = True
+          
+    if not accept:
+      event = Event(None, None)
     return event
 
-  def wait_for_event(self):
-    while len(self.events) == 0:
-      pass
-    event = self.events[0]
-    del self.events[0]
+  def wait_for_event(self, event_types = None):
+    accept = False
+    while not accept:
+      if len(self.events) == 0:
+        continue
+      event = self.events[0]
+      del self.events[0]
+      if event_types is None:
+        accept = True
+      elif isinstance(event_types, list):
+        if event.type in event_types:
+          accept = True
+      elif isinstance(event_types, int):
+        if event.type == event_types:
+          accept = True
     return event
       
